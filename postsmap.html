@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src='https://api.mapbox.com/mapbox.js/v3.0.1/mapbox.js'></script>
+<link href='https://api.mapbox.com/mapbox.js/v3.0.1/mapbox.css' rel='stylesheet' />
+<style>
+  .map {min-height: 250px; min-width: 250px; }
+</style>
+
+
+</head>
+<body>
+
+<div id="map" style="min-height: 250px; min-width: 250px;"></div>
+
+<script type="text/javascript">
+
+MAPBOX_TOKEN = 'your_mapbox_token'
+
+var atom_url = "https://" + window.location.hostname + "/feeds/posts/default"
+
+L.mapbox.accessToken = MAPBOX_TOKEN;
+var map = L.mapbox.map('map', 'mapbox.streets');
+
+$.get(atom_url, function(data, status) {
+
+    $xml = $(data);
+    var posts = {};
+
+    $xml.find("entry").each(function() {
+
+        var $this = $(this);
+        item = {};
+        item.title = $this.find("title").eq(0).text();
+        item.link = $this.find('link[rel="alternate"]').attr('href');
+        item.author = $this.find("author").find("name").text();
+        item.point = $this.find("point").text();
+        if (!item.point) {
+            item.point = $this.find("georss\\:point").text();
+        }
+
+        if (item.point) {
+            var marker = L.marker(item.point.split(" ")).addTo(map);
+            marker.bindPopup('<b><a href="' + item.link + '"">' + item.title + '</a></b>')
+            rel_url = "/" + item.link.replace(/^(?:\/\/|[^\/]+)*\//, "");
+            posts[rel_url] = marker;
+        }
+
+    });
+
+    // If the current url matches with a post, we zoom into the posts location
+    // Otherwise the map shows all markers
+    var is_post = false;
+    var current_post = window.location.pathname;
+    for (link in posts) {
+        if (link == current_post) {
+            is_post = true;
+            map.setView(posts[link].getLatLng(), 14);
+        }
+    }
+
+    if (!is_post) {
+        var group = new L.featureGroup($.map(posts, function(v) { return v; }));
+        map.fitBounds(group.getBounds());
+    }
+}, "xml");
+
+</script>
+
+</body>
+</html>
